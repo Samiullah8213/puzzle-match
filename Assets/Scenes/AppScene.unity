@@ -458,8 +458,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f9310332568dd8b49b29deee27a7f7c1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _columns: 3
   _cardPrefab: {fileID: 5481720059937712620, guid: 5f1eacd798f45684e83644d0819f34f6, type: 3}
-  _cardContainer: {fileID: 1071135945}
+  _cardGridLayoutGroup: {fileID: 1071135946}
   _sprites:
   - {fileID: -1766295167, guid: e0a8c440984841441893b72e4ee22487, type: 3}
   - {fileID: 922033246, guid: e0a8c440984841441893b72e4ee22487, type: 3}
@@ -530,7 +531,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.8283019, g: 0.9450711, b: 1, a: 1}
+  m_Color: {r: 0.4745098, g: 0.8, b: 0.5137255, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1

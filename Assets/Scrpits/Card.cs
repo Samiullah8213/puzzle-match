@@ -16,13 +16,15 @@ public class Card : MonoBehaviour
 
     public Sprite IconSprite => _iconSprite;
     
+    
     private void Start()
     {
         _iconImage.sprite = _hidenIconSprite;
     }
     public void OnCardClick()
     {
-        _cardController.SetSelectedCard(this);
+        if (_cardController != null)
+            _cardController.SetSelectedCard(this);
     }
     public void SetIconSprite(Sprite sprite)
     {
