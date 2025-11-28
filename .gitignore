@@ -1,0 +1,32 @@
+# =============== #
+# Unity generated #
+# =============== #
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+
+# Memory captures
+*.mem
+*.stacktrace
+
+# Crash files
+sysinfo.txt
+
+# Visual Studio cache
+.vs/
+*.user
+*.csproj
+*.sln
+*.suo
+*.tmp
+
+# Unity Asset Store tools
+AssetStoreTools*
+
+# Generated files
+ExportedObj/
+*.unitypackage
