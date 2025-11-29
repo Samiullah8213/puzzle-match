@@ -24,6 +24,13 @@ public class CardController : MonoBehaviour
     [SerializeField] private TMP_Text _totalCountText;
     [SerializeField] private Sprite[] _sprites;
     
+    [Header("Audio Effects")]
+    [SerializeField] private AudioClip _matchSound;
+    [SerializeField] private AudioClip _mismatchSound;
+    [SerializeField] private AudioClip _winSound;
+    [SerializeField] private AudioSource _audioSource;
+
+    
     private List<Card> _cards = new List<Card>();
     private List<Sprite> _spritePairs;
     private Card _firstSelectedCard;
@@ -142,6 +149,7 @@ public class CardController : MonoBehaviour
             // --- MATCH FOUND ---
             card1.SetMatchedState();
             card2.SetMatchedState();
+            PlaySound(_matchSound);
             _matchCount++;
             SaveGame(); // Save progress after a successful match.
 
@@ -149,6 +157,7 @@ public class CardController : MonoBehaviour
             if (_matchCount >= _totalCountOfSprites / 2)
             {
                 // Play win animation
+                PlaySound(_winSound);
                 PrimeTween.Sequence.Create()
                     .Chain(Tween.Scale(_cardGridLayoutGroup.transform, new Vector3(1.1f, 1.1f, 1.1f), 0.3f, Ease.OutBack))
                     .Chain(Tween.Scale(_cardGridLayoutGroup.transform, new Vector3(1f, 1f, 1f), 0.25f, Ease.InSine));
@@ -159,6 +168,7 @@ public class CardController : MonoBehaviour
             // --- NO MATCH ---
             card1.HideImage();
             card2.HideImage();
+            PlaySound(_mismatchSound);
             _NoMatchCount++;
         }
         
@@ -183,13 +193,22 @@ public class CardController : MonoBehaviour
             list[randomIndex] = temp;
         }
     }
-
     private void UpdateScore()
     {
         _matchCountText.text = $"Matches: {_matchCount}";
         _totalCountText.text = $"Total Try: {_NoMatchCount + _matchCount}";
     }
-   
+    /// <summary>
+    /// Plays a given audio clip if it's not null.
+    /// </summary>
+    private void PlaySound(AudioClip clip)
+    {
+        if (clip != null)
+        {
+            _audioSource?.PlayOneShot(clip);
+        }
+    }
+
     /// <summary>
     /// Saves the current game state to PlayerPrefs.
     /// </summary>
@@ -264,11 +283,17 @@ public class CardController : MonoBehaviour
         Debug.Log("Save data reset!");
     }
 
-    private void ClearDate()
+    private void ResetCardDate()
     {
+        int index = 0;
         foreach (Card card in _cards)
         {
-            card.ResetCardState();
+            if (index < _spritePairs.Count)
+            {
+                card.ResetCardState();
+                card.SetIconSprite(_spritePairs[index]);
+                index++;
+            }
         }
         _matchCount = 0;
         _NoMatchCount = 0;
@@ -277,7 +302,7 @@ public class CardController : MonoBehaviour
     public void RestartLevel()//invoke from UI
     {
         ResetSaveData();
-        ClearDate();
         InitilizeSprites();
+        ResetCardDate();
     }
 }

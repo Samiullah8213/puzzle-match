@@ -13,6 +13,8 @@ public class Card : MonoBehaviour
     [Header("References")]
     [SerializeField] private Image _iconImage;
     [SerializeField] private Sprite _hidenIconSprite;
+    [SerializeField] private AudioClip _flipSound;
+    [SerializeField] private AudioSource _audioSource;
     
     // The sprite for the card's face.
     private Sprite _iconSprite;
@@ -62,6 +64,9 @@ public class Card : MonoBehaviour
     /// </summary>
     public void ShowImage()
     {
+        if (_flipSound != null)
+            _audioSource?.PlayOneShot(_flipSound);
+        
         Tween.Rotation(transform, new Vector3(0, 180, 0), 0.2f);
         Tween.Delay(0.1f, () => _iconImage.sprite = _iconSprite);
     }
