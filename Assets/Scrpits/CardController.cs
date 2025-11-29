@@ -1,34 +1,68 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using PrimeTween;
 using UnityEngine.UI;
+using System;
+using TMPro;
+using Random = UnityEngine.Random;
 
 public class CardController : MonoBehaviour
 {
+    // --- FIELDS ---
+
+    private const string SaveKey = "CardGameState";
+
     [Header("Game Settings")]
     [SerializeField] private int _columns = 2;
 
     [Header("References")]
     [SerializeField] private Card _cardPrefab;
     [SerializeField] private GridLayoutGroup _cardGridLayoutGroup;
+    [SerializeField] private TMP_Text _matchCountText;
+    [SerializeField] private TMP_Text _totalCountText;
     [SerializeField] private Sprite[] _sprites;
     
+    private List<Card> _cards = new List<Card>();
     private List<Sprite> _spritePairs;
     private Card _firstSelectedCard;
     private Card _secondSelectedCard;
     private int _matchCount;
-    
+    private int _NoMatchCount;
+    private int _totalCountOfSprites;
+    private bool _isChecking; // Flag to prevent input during match check.
+
+    // --- UNITY METHODS ---
+
+    /// <summary>
+    /// Initializes the game. Tries to load a saved game first, otherwise starts a new one.
+    /// </summary>
     private void Start()
     {
-        SetupGridLayout();
-        InitilizeSprites();
-        InitializeCards();
-        _matchCount = 0; // Reset match count at the start of the game.
+        if (!LoadGame())
+        {
+            SetupGridLayout();
+            InitilizeSprites();
+            InitializeNewGame();
+            _matchCount = 0;
+            _NoMatchCount = 0;
+            _totalCountOfSprites = _spritePairs.Count;
+        }
+
+        UpdateScore();
     }
 
     /// <summary>
-    /// Configures the GridLayoutGroup based on the specified number of columns.
+    /// Saves the game state when the application quits.
+    /// </summary>
+    private void OnApplicationQuit()
+    {
+        SaveGame();
+    }
+
+    /// <summary>
+    /// Configures the GridLayoutGroup component.
     /// </summary>
     private void SetupGridLayout()
     {
@@ -37,92 +71,84 @@ public class CardController : MonoBehaviour
             Debug.LogError("Please assign a GridLayoutGroup to the CardController.");
             return;
         }
-        // Set the grid to have a fixed number of columns.
         _cardGridLayoutGroup.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
         _cardGridLayoutGroup.constraintCount = _columns;
     }
 
+    /// <summary>
+    /// Creates and shuffles the list of sprite pairs for a new game.
+    /// </summary>
     private void InitilizeSprites()
     {
         _spritePairs = new List<Sprite>();
-        // Duplicate each sprite to create pairs.
         for (int i = 0; i < _sprites.Length; i++)
         {
             _spritePairs.Add(_sprites[i]);
             _spritePairs.Add(_sprites[i]);
         }
-
-        ShuffleSprites();
+        ShuffleList(_spritePairs);
     }
-    private void InitializeCards()
+    
+    /// <summary>
+    /// Instantiates cards for a new game.
+    /// </summary>
+    private void InitializeNewGame()
     {
-        // Create a card for each sprite in the shuffled list.
         for (int i = 0; i < _spritePairs.Count; i++)
         {
             Card card = Instantiate(_cardPrefab, _cardGridLayoutGroup.transform);
             card.SetIconSprite(_spritePairs[i]);
+            card.SetDefaultIcon();
             card._cardController = this;
+            _cards.Add(card);
         }
     }
+   
+    /// <summary>
+    /// Determines if a card can be selected.
+    /// </summary>
+    public bool CanSelectCards() => !_isChecking && _secondSelectedCard == null;
 
     /// <summary>
-    /// Shuffles the list of sprite pairs using the Fisher-Yates algorithm.
+    /// Called by a card when clicked. Manages the two-card selection process.
     /// </summary>
-    private void ShuffleSprites()
-    {
-        int spriteCount = _spritePairs.Count;
-        for (int i = 0; i < spriteCount; i++)
-        {
-            // Swap the current element with a random one that comes after it.
-            Sprite temp = _spritePairs[i];
-            int randomIndex = Random.Range(i, spriteCount);
-            _spritePairs[i] = _spritePairs[randomIndex];
-            _spritePairs[randomIndex] = temp;
-        }
-    }
-    
-    /// <summary>
-    /// Called by a card when it is clicked. Manages the selection logic.
-    /// </summary>
-    /// <param name="card">The card that was selected.</param>
     public void SetSelectedCard(Card card)
     {
-        if (!card._isSelected) 
+        if (card == _firstSelectedCard) return; // Ignore clicking the same card twice.
+
+        card.ShowImage();
+
+        if (_firstSelectedCard == null)
         {
-            card.ShowImage();
-            
-            // If this is the first card selected in a turn, store it.
-            if (_firstSelectedCard == null)
-            {
-                _firstSelectedCard = card;
-                return;
-            }
-            // If this is the second card, store it and check for a match.
-            if (_secondSelectedCard == null)
-            {
-                _secondSelectedCard = card;
-                StartCoroutine(CheckForMatch(_firstSelectedCard, _secondSelectedCard));
-                // Reset selections for the next turn.
-                _firstSelectedCard = null;
-                _secondSelectedCard = null;
-            }
+            _firstSelectedCard = card;
+        }
+        else
+        {
+            _secondSelectedCard = card;
+            _isChecking = true; // Block further selections.
+            StartCoroutine(CheckForMatch(_firstSelectedCard, _secondSelectedCard));
         }
     }
     
     /// <summary>
-    /// A coroutine that checks if two selected cards are a match.
+    /// Coroutine to check if the two selected cards match.
     /// </summary>
-    /// <param name="card1">The first selected card.</param>
-    /// <param name="card2">The second selected card.</param>
-    IEnumerator CheckForMatch(Card card1, Card card2)
+    private IEnumerator CheckForMatch(Card card1, Card card2)
     {
         yield return new WaitForSeconds(0.5f);
+
         if (card1.IconSprite == card2.IconSprite)
         {
+            // --- MATCH FOUND ---
+            card1.SetMatchedState();
+            card2.SetMatchedState();
             _matchCount++;
-            if (_matchCount >= _spritePairs.Count/2)
+            SaveGame(); // Save progress after a successful match.
+
+            // Check for win condition
+            if (_matchCount >= _totalCountOfSprites / 2)
             {
-                // Play a "win" animation if all pairs are matched.
+                // Play win animation
                 PrimeTween.Sequence.Create()
                     .Chain(Tween.Scale(_cardGridLayoutGroup.transform, new Vector3(1.1f, 1.1f, 1.1f), 0.3f, Ease.OutBack))
                     .Chain(Tween.Scale(_cardGridLayoutGroup.transform, new Vector3(1f, 1f, 1f), 0.25f, Ease.InSine));
@@ -130,10 +156,128 @@ public class CardController : MonoBehaviour
         }
         else
         {
-            // If they don't match, flip them back over.
+            // --- NO MATCH ---
             card1.HideImage();
             card2.HideImage();
+            _NoMatchCount++;
+        }
+        
+        // Reset selections and allow input again.
+        _firstSelectedCard = null;
+        _secondSelectedCard = null;
+        _isChecking = false;
+
+        UpdateScore();
+    }
+
+    /// <summary>
+    /// Shuffles the provided list of sprites.
+    /// </summary>
+    private void ShuffleList<T>(List<T> list)
+    {
+        for (int i = 0; i < list.Count; i++)
+        {
+            T temp = list[i];
+            int randomIndex = Random.Range(i, list.Count);
+            list[i] = list[randomIndex];
+            list[randomIndex] = temp;
         }
     }
-    
+
+    private void UpdateScore()
+    {
+        _matchCountText.text = $"Matches: {_matchCount}";
+        _totalCountText.text = $"Total Try: {_NoMatchCount + _matchCount}";
+    }
+   
+    /// <summary>
+    /// Saves the current game state to PlayerPrefs.
+    /// </summary>
+    private void SaveGame()
+    {
+        SaveData data = new SaveData
+        {
+            matchCount = _matchCount
+            , NoMatchCount = _NoMatchCount
+        };
+
+        foreach (Card card in _cards)
+        {
+            data.cardStates.Add(new CardState
+            {
+                spriteName = card.IconSprite.name,
+                isMatched = card.IsMatched
+            });
+        }
+        
+        string json = JsonUtility.ToJson(data);
+        PlayerPrefs.SetString(SaveKey, json);
+        PlayerPrefs.Save();
+        Debug.Log("Game Saved!");
+    }
+
+    /// <summary>
+    /// Loads a game state from PlayerPrefs and rebuilds the board.
+    /// </summary>
+    /// <returns>True if a save was loaded, false otherwise.</returns>
+    private bool LoadGame()
+    {
+        if (!PlayerPrefs.HasKey(SaveKey))
+        {
+            return false;
+        }
+
+        string json = PlayerPrefs.GetString(SaveKey);
+        SaveData data = JsonUtility.FromJson<SaveData>(json);
+
+        _matchCount = data.matchCount;
+        _NoMatchCount = data.NoMatchCount;
+        _totalCountOfSprites = data.cardStates.Count;
+        // Create a lookup for sprites to easily find them by name.
+        var spriteDict = _sprites.ToDictionary(s => s.name);
+
+        SetupGridLayout();
+
+        foreach (CardState cardState in data.cardStates)
+        {
+            Card card = Instantiate(_cardPrefab, _cardGridLayoutGroup.transform);
+            card.SetIconSprite(spriteDict[cardState.spriteName]);
+            card._cardController = this;
+            if (cardState.isMatched)
+            {
+                card.SetMatchedState();
+            }
+            _cards.Add(card);
+        }
+        
+        Debug.Log("Game Loaded!");
+        return true;
+    }
+
+    /// <summary>
+    /// Deletes the saved game data from PlayerPrefs.
+    /// Can be called from a UI button to allow players to restart.
+    /// </summary>
+    private void ResetSaveData()
+    {
+        PlayerPrefs.DeleteKey(SaveKey);
+        Debug.Log("Save data reset!");
+    }
+
+    private void ClearDate()
+    {
+        foreach (Card card in _cards)
+        {
+            card.ResetCardState();
+        }
+        _matchCount = 0;
+        _NoMatchCount = 0;
+        UpdateScore();
+    }
+    public void RestartLevel()//invoke from UI
+    {
+        ResetSaveData();
+        ClearDate();
+        InitilizeSprites();
+    }
 }
